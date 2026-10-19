@@ -1,0 +1,75 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+:root {
+  --bg: #0a0a0c;
+  --panel: #111114;
+  --panel2: #18181c;
+  --panel3: #202026;
+  --line: #222228;
+  
+  --ink: #ffffff;
+  --muted: #7e7e88;
+  
+  /* BuildHub Accent */
+  --accent: #f59e0b;
+  --accent-gold: #facc15;
+  --accent-ink: #000000;
+  --accent-soft: rgba(245, 158, 11, 0.15);
+  
+  --danger: #ef4444;
+  --danger-soft: rgba(239, 68, 68, 0.15);
+  --warn: #f59e0b;
+  --warn-soft: rgba(245, 158, 11, 0.15);
+  --good: #10b981;
+  --good-soft: rgba(16, 185, 129, 0.15);
+}
+
+html, body {
+  background-color: #0b0b0d;
+  color: var(--ink);
+  overflow-x: hidden;
+  height: 100%;
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #23232a;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #3b3b47;
+}
+
+/* Grid pattern matching the design */
+.bg-grid-gold {
+  background-image: 
+    linear-gradient(to right, rgba(245, 158, 11, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(245, 158, 11, 0.05) 1px, transparent 1px);
+  background-size: 36px 36px;
+}
+
+.bg-grid-fine {
+  background-image: 
+    linear-gradient(to right, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* Horizontal blinds / scanlines as seen on the right side of the canvas */
+.bg-horizontal-scanlines {
+  background-image: repeating-linear-gradient(
+    0deg,
+    rgba(255, 255, 255, 0.18) 0px,
+    rgba(255, 255, 255, 0.18) 4px,
+    transparent 4px,
+    transparent 12px
+  );
+}
