@@ -1,25 +1,75 @@
-import { mutation, query } from './_generated/server';
+import { mutation, query, type QueryCtx, type MutationCtx } from './_generated/server';
+import type { Id } from './_generated/dataModel';
 import { v } from 'convex/values';
+import { getAuthUserId } from '@convex-dev/auth/server';
 
-// List conversations for a user
+const MAX_CONVERSATIONS = 50;
+
+async function requireUserId(ctx: QueryCtx | MutationCtx) {
+  const userId = await getAuthUserId(ctx);
+  if (!userId) throw new Error('Not authenticated');
+  return userId;
+}
+
+// Retourne la conversation si elle existe ; refuse si elle appartient à quelqu'un d'autre.
+async function getOwnedConversation(
+  ctx: QueryCtx | MutationCtx,
+  conversationId: string,
+  userId: Id<'users'>
+) {
+  const conv = await ctx.db
+    .query('conversations')
+    .withIndex('by_conversationId', (q) => q.eq('conversationId', conversationId))
+    .first();
+  if (conv && conv.userId !== userId) throw new Error('Forbidden');
+  return conv;
+}
+
+// Conversations de l'utilisateur connecté, avec leurs messages (même forme que le type Conversation côté React)
 export const list = query({
-  args: { username: v.optional(v.string()) },
-  handler: async (ctx, args) => {
-    let q = ctx.db.query('conversations');
-    if (args.username) {
-      return await q
-        .withIndex('by_username', (query) => query.eq('username', args.username))
-        .order('desc')
-        .collect();
-    }
-    return await q.order('desc').collect();
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return [];
+
+    const convs = await ctx.db
+      .query('conversations')
+      .withIndex('by_userId', (q) => q.eq('userId', userId))
+      .order('desc')
+      .take(MAX_CONVERSATIONS);
+
+    return await Promise.all(
+      convs.map(async (c) => {
+        const msgs = await ctx.db
+          .query('messages')
+          .withIndex('by_conversationId', (q) => q.eq('conversationId', c.conversationId))
+          .order('asc')
+          .collect();
+        return {
+          id: c.conversationId,
+          title: c.title,
+          createdAt: c.createdAt,
+          updatedAt: c.updatedAt,
+          messages: msgs.map((m) => ({
+            id: m.messageId,
+            role: m.role,
+            text: m.text,
+            error: m.error,
+            attachments: m.attachments?.map((a) => ({ name: a.name })),
+          })),
+        };
+      })
+    );
   },
 });
 
-// Get messages for a conversation
 export const getMessages = query({
   args: { conversationId: v.string() },
   handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return [];
+    const conv = await getOwnedConversation(ctx, args.conversationId, userId);
+    if (!conv) return [];
     return await ctx.db
       .query('messages')
       .withIndex('by_conversationId', (q) => q.eq('conversationId', args.conversationId))
@@ -28,45 +78,35 @@ export const getMessages = query({
   },
 });
 
-// Save or update conversation metadata
+// Crée la conversation si besoin (le titre n'est défini qu'à la création), sinon met à jour la date
 export const saveConversation = mutation({
-  args: {
-    conversationId: v.string(),
-    title: v.string(),
-    username: v.optional(v.string()),
-  },
+  args: { conversationId: v.string(), title: v.string() },
   handler: async (ctx, args) => {
-    const existing = await ctx.db
-      .query('conversations')
-      .withIndex('by_conversationId', (q) => q.eq('conversationId', args.conversationId))
-      .first();
-
+    const userId = await requireUserId(ctx);
+    const existing = await getOwnedConversation(ctx, args.conversationId, userId);
     const now = Date.now();
     if (existing) {
-      await ctx.db.patch(existing._id, {
-        title: args.title,
-        updatedAt: now,
-      });
+      await ctx.db.patch(existing._id, { updatedAt: now });
       return existing._id;
     }
-
     return await ctx.db.insert('conversations', {
       conversationId: args.conversationId,
       title: args.title,
-      username: args.username,
+      userId,
       createdAt: now,
       updatedAt: now,
     });
   },
 });
 
-// Add message to conversation
+// Ajoute un message ; crée la conversation si elle n'existe pas encore. Idempotent sur messageId.
 export const addMessage = mutation({
   args: {
     messageId: v.string(),
     conversationId: v.string(),
     role: v.union(v.literal('user'), v.literal('ai')),
     text: v.string(),
+    title: v.optional(v.string()),
     attachments: v.optional(
       v.array(
         v.object({
@@ -79,7 +119,28 @@ export const addMessage = mutation({
     error: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
+    const userId = await requireUserId(ctx);
     const now = Date.now();
+
+    const conv = await getOwnedConversation(ctx, args.conversationId, userId);
+    if (conv) {
+      await ctx.db.patch(conv._id, { updatedAt: now });
+    } else {
+      await ctx.db.insert('conversations', {
+        conversationId: args.conversationId,
+        title: args.title ?? 'Nouvelle conversation',
+        userId,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+
+    const duplicate = await ctx.db
+      .query('messages')
+      .withIndex('by_messageId', (q) => q.eq('messageId', args.messageId))
+      .first();
+    if (duplicate) return;
+
     await ctx.db.insert('messages', {
       messageId: args.messageId,
       conversationId: args.conversationId,
@@ -89,61 +150,41 @@ export const addMessage = mutation({
       error: args.error,
       createdAt: now,
     });
-
-    const conv = await ctx.db
-      .query('conversations')
-      .withIndex('by_conversationId', (q) => q.eq('conversationId', args.conversationId))
-      .first();
-
-    if (conv) {
-      await ctx.db.patch(conv._id, { updatedAt: now });
-    }
   },
 });
 
-// Delete conversation
 export const deleteConversation = mutation({
   args: { conversationId: v.string() },
   handler: async (ctx, args) => {
-    const conv = await ctx.db
-      .query('conversations')
-      .withIndex('by_conversationId', (q) => q.eq('conversationId', args.conversationId))
-      .first();
-
-    if (conv) {
-      await ctx.db.delete(conv._id);
-    }
+    const userId = await requireUserId(ctx);
+    const conv = await getOwnedConversation(ctx, args.conversationId, userId);
+    if (!conv) return;
 
     const msgs = await ctx.db
       .query('messages')
       .withIndex('by_conversationId', (q) => q.eq('conversationId', args.conversationId))
       .collect();
-
-    for (const msg of msgs) {
-      await ctx.db.delete(msg._id);
-    }
+    for (const m of msgs) await ctx.db.delete(m._id);
+    await ctx.db.delete(conv._id);
   },
 });
 
-// Clear all conversations for a user
+// Supprime toutes les conversations de l'utilisateur connecté (et seulement les siennes)
 export const clearAll = mutation({
-  args: { username: v.optional(v.string()) },
-  handler: async (ctx, args) => {
-    const convs = args.username
-      ? await ctx.db
-          .query('conversations')
-          .withIndex('by_username', (q) => q.eq('username', args.username))
-          .collect()
-      : await ctx.db.query('conversations').collect();
+  args: {},
+  handler: async (ctx) => {
+    const userId = await requireUserId(ctx);
+    const convs = await ctx.db
+      .query('conversations')
+      .withIndex('by_userId', (q) => q.eq('userId', userId))
+      .collect();
 
     for (const conv of convs) {
       const msgs = await ctx.db
         .query('messages')
         .withIndex('by_conversationId', (q) => q.eq('conversationId', conv.conversationId))
         .collect();
-      for (const m of msgs) {
-        await ctx.db.delete(m._id);
-      }
+      for (const m of msgs) await ctx.db.delete(m._id);
       await ctx.db.delete(conv._id);
     }
   },

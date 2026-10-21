@@ -1,26 +1,45 @@
-import { mutation, query } from './_generated/server';
+import { mutation, query, type QueryCtx, type MutationCtx } from './_generated/server';
 import { v } from 'convex/values';
+import { getAuthUserId } from '@convex-dev/auth/server';
 
-// Generate an authorized upload URL for Convex file storage
+async function requireUserId(ctx: QueryCtx | MutationCtx) {
+  const userId = await getAuthUserId(ctx);
+  if (!userId) throw new Error('Not authenticated');
+  return userId;
+}
+
+// URL d'upload : réservée aux utilisateurs connectés
 export const generateUploadUrl = mutation({
   args: {},
   handler: async (ctx) => {
+    await requireUserId(ctx);
     return await ctx.storage.generateUploadUrl();
   },
 });
 
-// Save file record after upload to storage
+// Enregistre le fichier envoyé, rattaché à l'utilisateur connecté
 export const saveFile = mutation({
   args: {
     storageId: v.id('_storage'),
     fileName: v.string(),
     fileType: v.string(),
     fileSize: v.number(),
-    username: v.optional(v.string()),
     category: v.optional(v.string()),
     docType: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const userId = await requireUserId(ctx);
+
+    // Empêche de "réclamer" un fichier déjà enregistré par quelqu'un d'autre
+    const already = await ctx.db
+      .query('files')
+      .withIndex('by_storageId', (q) => q.eq('storageId', args.storageId))
+      .first();
+    if (already) {
+      if (already.userId !== userId) throw new Error('Forbidden');
+      return already._id;
+    }
+
     const url = await ctx.storage.getUrl(args.storageId);
     return await ctx.db.insert('files', {
       storageId: args.storageId,
@@ -28,7 +47,7 @@ export const saveFile = mutation({
       fileType: args.fileType,
       fileSize: args.fileSize,
       url: url ?? undefined,
-      username: args.username,
+      userId,
       category: args.category || 'dossier',
       docType: args.docType,
       uploadedAt: Date.now(),
@@ -36,22 +55,19 @@ export const saveFile = mutation({
   },
 });
 
-// List all stocked files (optionally filtered by user)
+// Fichiers de l'utilisateur connecté uniquement
 export const listFiles = query({
-  args: { username: v.optional(v.string()) },
-  handler: async (ctx, args) => {
-    let files;
-    if (args.username) {
-      files = await ctx.db
-        .query('files')
-        .withIndex('by_username', (q) => q.eq('username', args.username))
-        .order('desc')
-        .collect();
-    } else {
-      files = await ctx.db.query('files').order('desc').collect();
-    }
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return [];
 
-    // Refresh public storage URLs
+    const files = await ctx.db
+      .query('files')
+      .withIndex('by_userId', (q) => q.eq('userId', userId))
+      .order('desc')
+      .collect();
+
     return await Promise.all(
       files.map(async (f) => ({
         ...f,
@@ -61,14 +77,15 @@ export const listFiles = query({
   },
 });
 
-// Delete a stocked file from database and Convex storage
 export const deleteFile = mutation({
   args: { id: v.id('files') },
   handler: async (ctx, args) => {
+    const userId = await requireUserId(ctx);
     const file = await ctx.db.get(args.id);
-    if (file) {
-      await ctx.storage.delete(file.storageId);
-      await ctx.db.delete(args.id);
-    }
+    if (!file) return;
+    if (file.userId !== userId) throw new Error('Forbidden');
+
+    await ctx.storage.delete(file.storageId);
+    await ctx.db.delete(args.id);
   },
 });

@@ -24,8 +24,8 @@ import { MODELS, type ModelOption } from '@/lib/models';
 import type { Message } from '@/lib/types';
 import type { UserProfile } from './ProfileModal';
 
-// BuildHub Cube Logo
-function BuildHubLogo() {
+// Courtier Cube Logo
+function CourtierLogo() {
   return (
     <div className="flex items-center gap-2">
       <div
@@ -43,7 +43,7 @@ function BuildHubLogo() {
           <path d="M4 4h7v7H4zm9 0h7v7h-7zm0 9h7v7h-7zm-9 0h7v7H4z" />
         </svg>
       </div>
-      <span className="font-bold text-white text-base tracking-tight select-none">BuildHub</span>
+      <span className="font-bold text-white text-base tracking-tight select-none">Courtier</span>
     </div>
   );
 }
@@ -238,9 +238,9 @@ export default function ChatPanel(p: Props) {
             <List size={22} />
           </button>
 
-          {/* BuildHub Logo */}
+          {/* Courtier Logo */}
           <div className="cursor-pointer" onClick={p.onNew}>
-            <BuildHubLogo />
+            <CourtierLogo />
           </div>
         </div>
 
@@ -302,9 +302,11 @@ export default function ChatPanel(p: Props) {
                   WebkitTextFillColor: 'transparent',
                 }}
               >
-                Welcome back
+                {p.profile.isLoggedIn ? 'Welcome back' : 'Welcome to'}
               </span>{' '}
-              <span className="text-white">{p.profile.username || 'Alex'}!</span>
+              <span className="text-white">
+                {p.profile.isLoggedIn ? p.profile.username : 'Courtier'}!
+              </span>
             </h1>
             <p className="text-xs md:text-sm text-neutral-400 mb-6 max-w-md">
               Which house drawing do you want to analyze today?
@@ -445,7 +447,7 @@ export default function ChatPanel(p: Props) {
                 type="button"
                 onClick={() =>
                   p.onSuggest(
-                    'Select materials: Depending on the goal and wishes, AI BuildHub will select the best materials.'
+                    'Select materials: Depending on the goal and wishes, AI Courtier will select the best materials.'
                   )
                 }
                 className="group flex flex-col justify-between rounded-2xl bg-[#141418] border border-[#22222a] p-3 hover:border-amber-400/50 hover:bg-[#181820] transition-all shadow-sm cursor-pointer"
@@ -467,7 +469,7 @@ export default function ChatPanel(p: Props) {
                   <div className="text-xs font-bold text-white leading-tight">Select materials</div>
                 </div>
                 <p className="text-[11px] text-neutral-400 leading-snug">
-                  Depending on the goal and wishes, AI BuildHub will select the best materials
+                  Depending on the goal and wishes, AI Courtier will select the best materials
                 </p>
               </button>
 
@@ -636,7 +638,7 @@ export default function ChatPanel(p: Props) {
                   }
                 }}
                 rows={1}
-                placeholder="Ask BuildHub about plans, materials, or documents..."
+                placeholder="Ask Courtier about plans, materials, or documents..."
                 className="max-h-28 min-h-[38px] flex-1 resize-none bg-transparent py-2 text-sm text-white placeholder-neutral-500 outline-none border-0 focus:ring-0 p-0"
               />
 
@@ -707,7 +709,7 @@ export default function ChatPanel(p: Props) {
           >
             <h4 className="text-sm font-bold text-white mb-1">Feature Recommendation</h4>
             <p className="text-xs text-neutral-400 mb-3">
-              What capability or tool would you like to see in BuildHub?
+              What capability or tool would you like to see in Courtier?
             </p>
             {recSent ? (
               <div className="p-4 rounded-xl bg-amber-400/10 text-amber-300 text-xs text-center border border-amber-400/20">

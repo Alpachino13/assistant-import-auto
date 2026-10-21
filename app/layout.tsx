@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "BuildHub - AI Architectural & Vehicle Import Agent",
+  title: "Courtier - AI Architectural & Vehicle Import Agent",
   description:
     "Assistant IA pour l'analyse de plans, blueprints, sélection de matériaux et formalités d'importation.",
 };

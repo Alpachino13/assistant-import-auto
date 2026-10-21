@@ -9,6 +9,8 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@auth/core": "^0.41.3",
+    "@convex-dev/auth": "^0.0.96",
     "@google/generative-ai": "^0.24.1",
     "@phosphor-icons/react": "^2.1.10",
     "convex": "^1.47.0",

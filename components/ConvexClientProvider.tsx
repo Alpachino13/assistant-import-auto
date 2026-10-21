@@ -1,12 +1,12 @@
 'use client';
 
 import { ReactNode } from 'react';
-import { ConvexProvider, ConvexReactClient } from 'convex/react';
+import { ConvexReactClient } from 'convex/react';
+import { ConvexAuthProvider } from '@convex-dev/auth/react';
 
 const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
 
-// L'instanciation est sortie du composant pour éviter que Next.js 
-// n'analyse le Math.random() interne de Convex pendant le pré-rendu (SSR).
+// Instanciation hors du composant pour éviter les problèmes de pré-rendu (SSR) de Next.js.
 let convexClient: ConvexReactClient | null = null;
 
 if (convexUrl && /^https?:\/\//i.test(convexUrl)) {
@@ -18,11 +18,6 @@ if (convexUrl && /^https?:\/\//i.test(convexUrl)) {
 }
 
 export default function ConvexClientProvider({ children }: { children: ReactNode }) {
-  if (!convexClient) {
-    // If NEXT_PUBLIC_CONVEX_URL is not yet connected to a live deployment,
-    // the app continues seamlessly with browser storage while Convex schemas are ready.
-    return <>{children}</>;
-  }
-
-  return <ConvexProvider client={convexClient}>{children}</ConvexProvider>;
+  if (!convexClient) return <>{children}</>;
+  return <ConvexAuthProvider client={convexClient}>{children}</ConvexAuthProvider>;
 }

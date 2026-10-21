@@ -8,9 +8,11 @@
  * @module
  */
 
+import type * as auth from "../auth.js";
 import type * as chat from "../chat.js";
 import type * as dossier from "../dossier.js";
 import type * as files from "../files.js";
+import type * as http from "../http.js";
 import type * as users from "../users.js";
 
 import type {
@@ -20,9 +22,11 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  auth: typeof auth;
   chat: typeof chat;
   dossier: typeof dossier;
   files: typeof files;
+  http: typeof http;
   users: typeof users;
 }>;
 

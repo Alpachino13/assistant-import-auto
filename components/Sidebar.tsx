@@ -29,6 +29,16 @@ type GroupedChats = {
   items: Conversation[];
 };
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+const startOfDay = (t: number) => {
+  const d = new Date(t);
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+};
+
+const formatDate = (t: number) => new Date(t).toLocaleDateString('fr-FR').replace(/\//g, '.');
+
 export default function Sidebar({
   conversations,
   activeId,
@@ -42,72 +52,30 @@ export default function Sidebar({
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const [showSubModal, setShowSubModal] = useState(false);
 
-  // Group conversations chronologically into: Today, Yesterday, 3 days ago, 7 days ago, Last 30 days
-  const grouped = useMemo(() => {
+  // Regroupe les vraies conversations par jour calendaire : Today, Yesterday, Previous 7 days, Previous 30 days, Older
+  const grouped = useMemo<GroupedChats[]>(() => {
     const query = search.trim().toLowerCase();
-    const filtered = query
-      ? conversations.filter((c) => c.title.toLowerCase().includes(query))
-      : conversations;
+    const filtered = (query ? conversations.filter((c) => c.title.toLowerCase().includes(query)) : conversations)
+      .slice()
+      .sort((a, b) => (b.updatedAt || b.createdAt) - (a.updatedAt || a.createdAt));
 
-    const now = Date.now();
-    const oneDay = 24 * 60 * 60 * 1000;
-
-    const groups: Record<string, Conversation[]> = {
-      Today: [],
-      Yesterday: [],
-      '3 days ago': [],
-      '7 days ago': [],
-      'Last 30 days': [],
-    };
+    const today = startOfDay(Date.now());
+    const groups: GroupedChats[] = [
+      { label: 'Today', items: [] },
+      { label: 'Yesterday', items: [] },
+      { label: 'Previous 7 days', items: [] },
+      { label: 'Previous 30 days', items: [] },
+      { label: 'Older', items: [] },
+    ];
 
     filtered.forEach((conv) => {
-      const diffDays = Math.floor((now - (conv.updatedAt || conv.createdAt || now)) / oneDay);
-      if (diffDays <= 0) {
-        groups['Today'].push(conv);
-      } else if (diffDays === 1) {
-        groups['Yesterday'].push(conv);
-      } else if (diffDays <= 3) {
-        groups['3 days ago'].push(conv);
-      } else if (diffDays <= 7) {
-        groups['7 days ago'].push(conv);
-      } else {
-        groups['Last 30 days'].push(conv);
-      }
+      const ts = conv.updatedAt || conv.createdAt || Date.now();
+      const diffDays = Math.round((today - startOfDay(ts)) / DAY_MS);
+      const index = diffDays <= 0 ? 0 : diffDays === 1 ? 1 : diffDays <= 7 ? 2 : diffDays <= 30 ? 3 : 4;
+      groups[index].items.push(conv);
     });
 
-    // If completely empty and no search query, provide realistic sample placeholders matching the design
-    const hasAny = Object.values(groups).some((arr) => arr.length > 0);
-    if (!hasAny && !query) {
-      return [
-        {
-          label: 'Today',
-          items: [{ id: 'mock-1', title: 'Tell us about your capabilities', createdAt: now, updatedAt: now, messages: [] }],
-        },
-        {
-          label: 'Yesterday',
-          items: [{ id: 'mock-2', title: 'Tell us about your capabilities', createdAt: now - oneDay, updatedAt: now - oneDay, messages: [] }],
-        },
-        {
-          label: '3 days ago',
-          items: [{ id: 'mock-3', title: 'Tell us about your capabilities', createdAt: now - 3 * oneDay, updatedAt: now - 3 * oneDay, messages: [] }],
-        },
-        {
-          label: '7 days ago',
-          items: [{ id: 'mock-4', title: 'Tell us about your capabilities', createdAt: now - 7 * oneDay, updatedAt: now - 7 * oneDay, messages: [] }],
-        },
-        {
-          label: 'Last 30 days',
-          items: [
-            { id: 'mock-5', title: 'Tell us about your capabilities', createdAt: now - 15 * oneDay, updatedAt: now - 15 * oneDay, messages: [] },
-            { id: 'mock-6', title: 'Tell us about your capabilities', createdAt: now - 25 * oneDay, updatedAt: now - 25 * oneDay, messages: [] },
-          ],
-        },
-      ];
-    }
-
-    return Object.entries(groups)
-      .filter(([_, list]) => list.length > 0)
-      .map(([label, items]) => ({ label, items }));
+    return groups.filter((g) => g.items.length > 0);
   }, [conversations, search]);
 
   return (
@@ -165,21 +133,24 @@ export default function Sidebar({
 
       {/* Grouped Conversation History */}
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-2 space-y-4">
+        {grouped.length === 0 && (
+          <p className="px-2 py-8 text-center text-[11px] text-neutral-500">
+            {search.trim() ? 'No conversations found' : 'No conversations yet. Start a new chat!'}
+          </p>
+        )}
         {grouped.map(({ label, items }) => (
           <div key={label} className="space-y-1.5">
             <h3 className="text-[11px] font-medium text-neutral-400 px-1">{label}</h3>
             <div className="space-y-1">
-              {items.map((item, idx) => {
+              {items.map((item) => {
                 const isActive = item.id === activeId;
-                const isMock = item.id.startsWith('mock-');
                 const isMenuOpen = menuOpenId === item.id;
 
                 return (
                   <div key={item.id} className="relative group">
-                    {/* Date label for 30-day items if desired */}
-                    {label === 'Last 30 days' && idx < 2 && (
+                    {label === 'Older' && (
                       <span className="block px-2 text-[9px] text-neutral-500 font-mono mb-0.5">
-                        {idx === 0 ? '01.12.2025' : '01.11.2025'}
+                        {formatDate(item.updatedAt || item.createdAt)}
                       </span>
                     )}
 
@@ -189,13 +160,7 @@ export default function Sidebar({
                           ? 'bg-[#222228] text-white font-medium shadow-sm'
                           : 'bg-[#18181c]/80 hover:bg-[#1f1f25] text-neutral-300'
                       }`}
-                      onClick={() => {
-                        if (isMock) {
-                          onNew();
-                        } else {
-                          onSelect(item.id);
-                        }
-                      }}
+                      onClick={() => onSelect(item.id)}
                     >
                       <span className="truncate flex-1 text-[12px]">{item.title}</span>
 
@@ -218,18 +183,16 @@ export default function Sidebar({
                         className="absolute right-2 top-8 z-30 w-36 rounded-xl bg-[#202026] border border-[#2e2e38] p-1 shadow-2xl animate-in fade-in zoom-in-95 duration-100"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        {!isMock && (
-                          <button
-                            onClick={() => {
-                              onDelete(item.id);
-                              setMenuOpenId(null);
-                            }}
-                            className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-red-400 hover:bg-red-500/10 transition-colors"
-                          >
-                            <Trash size={14} />
-                            <span>Delete</span>
-                          </button>
-                        )}
+                        <button
+                          onClick={() => {
+                            onDelete(item.id);
+                            setMenuOpenId(null);
+                          }}
+                          className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-red-400 hover:bg-red-500/10 transition-colors"
+                        >
+                          <Trash size={14} />
+                          <span>Delete</span>
+                        </button>
                         <button
                           onClick={() => {
                             setMenuOpenId(null);
@@ -299,7 +262,7 @@ export default function Sidebar({
             </button>
             <div className="flex items-center gap-2 text-amber-400 mb-2">
               <Sparkle size={20} weight="fill" />
-              <span className="text-xs uppercase font-bold tracking-wider">BuildHub Pro</span>
+              <span className="text-xs uppercase font-bold tracking-wider">Courtier Pro</span>
             </div>
             <h3 className="text-xl font-bold text-white mb-2">Upgrade to Pro</h3>
             <p className="text-xs text-neutral-400 mb-4">
