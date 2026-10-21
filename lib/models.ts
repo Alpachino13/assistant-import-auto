@@ -83,7 +83,7 @@ export const ALLOWED_MODEL_IDS: string[] = MODELS.map((m) => m.id);
 export const DEFAULT_MODEL = 'gemini-3.6-flash';
 
 // Home server Tailscale default endpoint
-export const DEFAULT_LOCAL_AI_URL = 'http://100.85.73.32:11434';
+export const DEFAULT_LOCAL_AI_URL = ' https://isolated-aptitude-obtain.ngrok-free.dev';
 
 // Helper to normalize any local URL (adds http:// if omitted)
 export function normalizeLocalUrl(url?: string): string {
