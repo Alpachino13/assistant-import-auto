@@ -3,7 +3,7 @@
 **An AI assistant that checks vehicle import documents and guides people through customs and registration in Algeria.**
 
 - **Live demo:** https://courtier-eta.vercel.app
-- **Demo video:** [TODO: paste the unlisted YouTube / Google Drive link]
+- **Demo video:** https://drive.google.com/file/d/1YjJJqmECHq_nFvK1eem6Yj8gc_L6ll3P/view?usp=sharing
 - **Repository:** https://github.com/Alpachino13/assistant-import-auto
 - Built for the Thirduni Cohort 1 team project (October 2026).
 
@@ -106,7 +106,7 @@ lib/
 
 | Name | What they did |
 |---|---|
-| Zakaria Mehdi Merabet ([@Alpachino13](https://github.com/Alpachino13)) | [TODO: one honest line, e.g. "Built the full stack one man team"] |
+| Zakaria Mehdi Merabet ([@Alpachino13](https://github.com/Alpachino13)) | [ "Built the full stack one man team"] |
 
 ## Tech stack
 
