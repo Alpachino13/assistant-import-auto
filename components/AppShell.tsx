@@ -4,6 +4,7 @@ import { useMemo, useRef, useState, useEffect } from 'react';
 import Sidebar from './Sidebar';
 import ChatPanel from './ChatPanel';
 import DossierPanel from './DossierPanel';
+import PolicyGate from './PolicyGate';
 import ProfileModal, { DEFAULT_PROFILE, type UserProfile } from './ProfileModal';
 import { buildContext, evaluateDossier, summarizeAnalysis } from '@/lib/checklist';
 import { DEFAULT_LOCAL_AI_URL, DEFAULT_MODEL, MODELS } from '@/lib/models';
@@ -381,14 +382,14 @@ export default function AppShell() {
   analyzeRef.current = analyze;
 
   return (
-    <div className="relative min-h-screen w-full bg-[#14120a] overflow-hidden font-sans select-none flex flex-col justify-center items-center">
-      <div className="absolute inset-0 bg-gradient-to-b from-[#7a6f20]/75 via-[#2b270a]/90 to-[#0c0c0f] pointer-events-none" />
-      <div className="absolute -top-32 -right-20 w-[800px] h-[800px] bg-gradient-to-bl from-yellow-200/40 via-amber-400/20 to-transparent blur-3xl pointer-events-none" />
-      <div className="absolute top-1/4 right-0 w-80 h-96 bg-horizontal-scanlines opacity-15 pointer-events-none" />
-      <div className="absolute inset-0 bg-grid-gold opacity-35 pointer-events-none" />
+    <div className="relative min-h-dvh w-full bg-[#14120a] overflow-hidden font-sans md:select-none flex flex-col justify-center items-center">
+      <div className="max-md:hidden absolute inset-0 bg-gradient-to-b from-[#7a6f20]/75 via-[#2b270a]/90 to-[#0c0c0f] pointer-events-none" />
+      <div className="max-md:hidden absolute -top-32 -right-20 w-[800px] h-[800px] bg-gradient-to-bl from-yellow-200/40 via-amber-400/20 to-transparent blur-3xl pointer-events-none" />
+      <div className="max-md:hidden absolute top-1/4 right-0 w-80 h-96 bg-horizontal-scanlines opacity-15 pointer-events-none" />
+      <div className="max-md:hidden absolute inset-0 bg-grid-gold opacity-35 pointer-events-none" />
 
       <div
-        className="absolute top-12 inset-x-0 flex items-center justify-center pointer-events-none select-none overflow-hidden opacity-25"
+        className="max-md:hidden absolute top-12 inset-x-0 flex items-center justify-center pointer-events-none select-none overflow-hidden opacity-25"
         aria-hidden="true"
       >
         <span className="text-[15vw] font-black tracking-tight text-[#fffae0] whitespace-nowrap drop-shadow-[0_4px_30px_rgba(0,0,0,0.5)]">
@@ -396,7 +397,7 @@ export default function AppShell() {
         </span>
       </div>
 
-      <div className="relative z-20 flex w-full h-screen md:h-[92vh] md:min-h-[620px] md:max-h-[880px] md:max-w-[1280px] md:px-6 md:py-2">
+      <div className="relative z-20 flex w-full h-dvh pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] md:h-[92vh] md:min-h-[620px] md:max-h-[880px] md:max-w-[1280px] md:px-6 md:py-2">
         <div className="relative flex h-full w-full rounded-none md:rounded-[32px] border-0 md:border border-[#2e2e38] bg-[#0e0e12] shadow-[0_30px_90px_rgba(0,0,0,0.95)] overflow-hidden">
 
           <div className="hidden md:block w-72 shrink-0 h-full border-r border-[#222228]">
@@ -487,6 +488,8 @@ export default function AppShell() {
       {profileModalOpen && (
         <ProfileModal profile={profile} reason={authReason} onClose={closeProfile} />
       )}
+
+      <PolicyGate />
     </div>
   );
 }
