@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import ConvexClientProvider from "@/components/ConvexClientProvider";
@@ -17,6 +17,13 @@ export const metadata: Metadata = {
   title: "Courtier - AI Architectural & Vehicle Import Agent",
   description:
     "Assistant IA pour l'analyse de plans, blueprints, sélection de matériaux et formalités d'importation.",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover", // needed for env(safe-area-inset-*) on notched phones
+  themeColor: "#0b0b0d",
 };
 
 export default function RootLayout({
