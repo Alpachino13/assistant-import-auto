@@ -6,6 +6,8 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { messages, model, context, localUrl } = body;
 
+    const serverBase = normalizeLocalUrl(process.env.LOCAL_AI_URL);
+    if (!serverBase) return new Response('Serveur IA local non configuré.', { status: 503 });
     const chosenModel = ALLOWED_MODEL_IDS.includes(model) ? model : DEFAULT_MODEL;
     const modelMeta = MODELS.find((m) => m.id === chosenModel);
     const isLocal = modelMeta?.provider === 'local' || chosenModel.includes('qwen') || chosenModel.startsWith('local');
