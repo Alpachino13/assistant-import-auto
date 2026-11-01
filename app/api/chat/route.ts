@@ -1,63 +1,83 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { ALLOWED_MODEL_IDS, DEFAULT_LOCAL_AI_URL, DEFAULT_MODEL, MODELS, normalizeLocalUrl } from '@/lib/models';
+import { ALLOWED_MODEL_IDS, DEFAULT_MODEL, MODELS, normalizeLocalUrl } from '@/lib/models';
+
+// A 7B model on CPU can take over a minute to answer. Raise it if your Vercel plan allows.
+export const maxDuration = 60;
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { messages, model, context, localUrl } = body;
+    const { messages, model, context } = body;
 
-    const serverBase = normalizeLocalUrl(process.env.LOCAL_AI_URL);
-    if (!serverBase) return new Response('Serveur IA local non configuré.', { status: 503 });
-    const chosenModel = ALLOWED_MODEL_IDS.includes(model) ? model : DEFAULT_MODEL;
-    const modelMeta = MODELS.find((m) => m.id === chosenModel);
-    const isLocal = modelMeta?.provider === 'local' || chosenModel.includes('qwen') || chosenModel.startsWith('local');
-
-    // Instruction de base
-    let systemInstruction = context
-      ? `Contexte du dossier de l'utilisateur : ${context}\nTu es un assistant IA expert en importation de véhicules, formalités douanières, analyse de devis et conformité.`
-      : 'Tu es un assistant IA expert en importation automobile en Algérie, dédouanement et vérification de documents.';
-
-    // VERROUILLAGE DE L'IDENTITÉ POUR LE MODÈLE LOCAL
-    if (isLocal) {
-      systemInstruction += "\n\nDIRECTIVE STRICTE : Tu es Qwen, une intelligence artificielle open-source fonctionnant localement sur le serveur privé de l'utilisateur via Tailscale. Tu n'es PAS Claude. Tu n'as PAS été créé par Anthropic. Assumes pleinement ton identité de Qwen.";
+    if (!Array.isArray(messages) || messages.length === 0) {
+      return new Response('Requête invalide.', { status: 400 });
     }
 
+    const chosenModel = ALLOWED_MODEL_IDS.includes(model) ? model : DEFAULT_MODEL;
+    const modelMeta = MODELS.find((m) => m.id === chosenModel);
+    const isLocal = modelMeta?.provider === 'local';
+
+    // Limit the dossier text so the local model doesn't have to read a huge prompt
+    const safeContext = typeof context === 'string' ? context.slice(0, 1500) : '';
+
+    let systemInstruction = safeContext
+      ? `Contexte du dossier de l'utilisateur : ${safeContext}\nTu es un assistant IA expert en importation de véhicules, formalités douanières, analyse de devis et conformité.`
+      : 'Tu es un assistant IA expert en importation automobile en Algérie, dédouanement et vérification de documents.';
+
     // -------------------------------------------------------------
-    // 1. LOCAL AGENT (Qwen 2.5:3B via Tailscale / Home Server)
+    // 1. LOCAL AGENT (courtier-7b on the home server, through the tunnel)
     // -------------------------------------------------------------
     if (isLocal) {
-      const serverBase = normalizeLocalUrl(localUrl || process.env.LOCAL_AI_URL || DEFAULT_LOCAL_AI_URL);
+      systemInstruction +=
+        "\n\nTu es Qwen, une IA open-source qui tourne sur le serveur privé de l'utilisateur. Tu n'es pas Claude. Réponds de façon courte et précise.";
+
+      // URL and credentials come only from the server environment
+      const serverBase = normalizeLocalUrl(process.env.LOCAL_AI_URL);
+      if (!serverBase) {
+        return new Response('Serveur IA local non configuré.', { status: 503 });
+      }
       const ollamaEndpoint = `${serverBase}/api/chat`;
 
       const formattedMessages = [
         { role: 'system', content: systemInstruction },
-        ...messages.map((m: { role: string; text: string }) => ({
+        ...messages.slice(-6).map((m: { role: string; text: string }) => ({
           role: m.role === 'ai' ? 'assistant' : 'user',
           content: m.text,
         })),
       ];
 
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': '1',
+      };
+      if (process.env.LOCAL_AI_USER && process.env.LOCAL_AI_PASS) {
+        headers.Authorization =
+          'Basic ' +
+          Buffer.from(`${process.env.LOCAL_AI_USER}:${process.env.LOCAL_AI_PASS}`).toString('base64');
+      }
+
       try {
         const localRes = await fetch(ollamaEndpoint, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify({
-            model: chosenModel,
+            model: chosenModel, // 'courtier-7b'
             messages: formattedMessages,
             stream: true,
+            keep_alive: '30m',
+            options: { num_ctx: 4096 }, // same value as the Modelfile
           }),
         });
 
         if (!localRes.ok || !localRes.body) {
-          const errText = await localRes.text().catch(() => '');
-          return new Response(
-            `Erreur serveur local Ollama (${localRes.status}) sur ${serverBase}: ${errText || 'Modèle non disponible.'}`,
-            { status: 502 }
-          );
+          // Details go to the Vercel logs only, never to the browser
+          console.error('Ollama error status:', localRes.status);
+          return new Response('Le serveur IA local est indisponible.', { status: 502 });
         }
 
         const reader = localRes.body.getReader();
         const decoder = new TextDecoder();
+        const encoder = new TextEncoder();
 
         const stream = new ReadableStream({
           async start(controller) {
@@ -77,11 +97,9 @@ export async function POST(req: Request) {
                   try {
                     const parsed = JSON.parse(trimmed);
                     const token = parsed?.message?.content || parsed?.response || '';
-                    if (token) {
-                      controller.enqueue(new TextEncoder().encode(token));
-                    }
+                    if (token) controller.enqueue(encoder.encode(token));
                   } catch {
-                    // Ignorer les fragments JSON partiels
+                    // Ignore partial JSON fragments
                   }
                 }
               }
@@ -89,9 +107,7 @@ export async function POST(req: Request) {
                 try {
                   const parsed = JSON.parse(buffer.trim());
                   const token = parsed?.message?.content || parsed?.response || '';
-                  if (token) {
-                    controller.enqueue(new TextEncoder().encode(token));
-                  }
+                  if (token) controller.enqueue(encoder.encode(token));
                 } catch {}
               }
               controller.close();
@@ -111,7 +127,7 @@ export async function POST(req: Request) {
       } catch (connErr) {
         console.error('Erreur connexion Home Server:', connErr);
         return new Response(
-          `Impossible de joindre votre serveur local Ollama à ${serverBase} via Tailscale. Vérifiez que le serveur est allumé.`,
+          'Impossible de joindre le serveur IA local. Vérifiez que le serveur est allumé.',
           { status: 503 }
         );
       }
@@ -121,7 +137,7 @@ export async function POST(req: Request) {
     // 2. GOOGLE GEMINI (API CLOUD)
     // -------------------------------------------------------------
     const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) return new Response('Clé API Gemini manquante dans .env.local', { status: 500 });
+    if (!apiKey) return new Response('Clé API Gemini manquante.', { status: 500 });
 
     const genAI = new GoogleGenerativeAI(apiKey);
 
@@ -151,7 +167,6 @@ export async function POST(req: Request) {
     } catch (primaryErr: any) {
       console.warn(`Modèle ${chosenModel} non disponible. Tentative de fallback...`);
 
-      // Fallback sur un modèle stable existant
       const fallbackCandidates = ['gemini-1.5-flash', 'gemini-1.5-pro'].filter((m) => m !== chosenModel);
 
       let fallbackSuccess = false;
@@ -198,9 +213,10 @@ export async function POST(req: Request) {
     });
   } catch (error: any) {
     console.error('Erreur Chat:', error);
-    const msg = error?.status === 503
-      ? "Les serveurs Google Gemini subissent une forte charge temporaire."
-      : error instanceof Error ? error.message : 'Erreur inconnue';
+    const msg =
+      error?.status === 503
+        ? 'Les serveurs Google Gemini subissent une forte charge temporaire.'
+        : 'Une erreur est survenue. Réessayez dans un instant.';
     return new Response(msg, { status: 500 });
   }
 }
