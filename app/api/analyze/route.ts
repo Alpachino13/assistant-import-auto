@@ -1,5 +1,5 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { ALLOWED_MODEL_IDS, DEFAULT_MODEL } from '@/lib/models';
+import { ALLOWED_MODEL_IDS, DEFAULT_MODEL, MODELS } from '@/lib/models';
 import {
   DOC_TYPES,
   FIELD_KEYS,
