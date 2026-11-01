@@ -91,8 +91,11 @@ export async function POST(req: Request) {
   if (files.length > MAX_FILES) return new Response(`${MAX_FILES} fichiers maximum par envoi`, { status: 400 });
 
   const modelField = form.get('model');
-  const chosenModel =
+  const requestedModel =
     typeof modelField === 'string' && ALLOWED_MODEL_IDS.includes(modelField) ? modelField : DEFAULT_MODEL;
+  // The local Qwen model reads text only, so documents always go to a Gemini model.
+  const chosenModel =
+    MODELS.find((m) => m.id === requestedModel)?.provider === 'local' ? DEFAULT_MODEL : requestedModel;
 
   const genAI = new GoogleGenerativeAI(apiKey);
 
