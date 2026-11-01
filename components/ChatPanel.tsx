@@ -52,7 +52,6 @@ function CourtierLogo() {
 function ModelSelectorDropdown({
   selectedModel,
   onSelectModel,
-  onOpenSettings,
   isOpen,
   onToggle,
 }: {
@@ -131,9 +130,9 @@ function ModelSelectorDropdown({
             </button>
           ))}
 
-          {/* Local Agent (home server)*/}
+          {/* Local Agent Home Server */}
           <div className="px-2.5 pt-2.5 pb-1 text-[10px] uppercase font-bold text-neutral-500 tracking-wider border-t border-white/5 mt-1">
-            Agent Local (Home Server · Tailscale)
+            Agent Local (Home Server)
           </div>
           {MODELS.filter((m) => m.provider === 'local').map((m) => (
             <button
@@ -163,8 +162,6 @@ function ModelSelectorDropdown({
               {selectedModel === m.id && <Check size={14} weight="bold" className="shrink-0" />}
             </button>
           ))}
-
-      
         </div>
       )}
     </div>
@@ -359,7 +356,7 @@ export default function ChatPanel(p: Props) {
                       )}
                     </button>
 
-                    {/* Model Pill: Gemini & Local Tailscale Models */}
+                    {/* Model Pill */}
                     <ModelSelectorDropdown
                       selectedModel={p.model}
                       onSelectModel={p.onModel}
