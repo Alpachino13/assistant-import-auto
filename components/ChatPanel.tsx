@@ -82,7 +82,9 @@ function ModelSelectorDropdown({
           <Sparkle size={14} weight="fill" className="text-amber-400 shrink-0" />
         )}
         <span className="font-semibold text-xs truncate max-w-[130px]">
-          {isLocal ? 'Qwen 2.5:3B' : currentMeta.label.split(' ')[0] + ' ' + (currentMeta.label.split(' ')[1] || '')}
+          {isLocal
+            ? currentMeta.label.replace(/\s*\(.*\)\s*$/, '')
+            : currentMeta.label.split(' ')[0] + ' ' + (currentMeta.label.split(' ')[1] || '')}
         </span>
         <span
           className={`text-[9px] px-1.5 py-0.2 rounded-full font-bold ${
