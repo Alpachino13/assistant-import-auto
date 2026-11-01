@@ -164,17 +164,7 @@ function ModelSelectorDropdown({
             </button>
           ))}
 
-          <button
-            type="button"
-            onClick={() => {
-              onToggle();
-              onOpenSettings();
-            }}
-            className="mt-2 flex items-center justify-center gap-1.5 w-full rounded-lg bg-white/5 py-1.5 text-[10px] text-neutral-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
-          >
-            <Gear size={12} />
-            <span>Gérer l&apos;adresse Tailscale (100.85.73.32)</span>
-          </button>
+      
         </div>
       )}
     </div>
