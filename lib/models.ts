@@ -66,13 +66,13 @@ export const MODELS: ModelOption[] = [
     category: 'Gemini (Google)',
   },
 
-  // Local Home Server via Tailscale
+  // Local model on the home server (Ollama, exposed through a tunnel)
   {
-    id: 'qwen2.5:3b',
-    label: 'Qwen 2.5:3B (Local Agent)',
+    id: 'courtier-7b',
+    label: 'Qwen 2.5 7B (Local Agent)',
     provider: 'local',
-    badge: 'Tailscale',
-    description: 'Auto-hébergé sur votre Home Server (100.85.73.32:11434)',
+    badge: 'Home Server',
+    description: 'Auto-hébergé sur votre serveur personnel, réponses plus lentes mais données privées',
     category: 'Local Agent (Home Server)',
   },
 ];
@@ -82,13 +82,15 @@ export const ALLOWED_MODEL_IDS: string[] = MODELS.map((m) => m.id);
 // Stable live default model
 export const DEFAULT_MODEL = 'gemini-3.6-flash';
 
-// Home server Tailscale default endpoint
-export const DEFAULT_LOCAL_AI_URL = ' https://isolated-aptitude-obtain.ngrok-free.dev';
+// No URL in the code: set LOCAL_AI_URL in the Vercel environment variables.
+export const DEFAULT_LOCAL_AI_URL = '';
 
-// Helper to normalize any local URL (adds http:// if omitted)
+// Normalizes a local server URL: keeps http(s)://, otherwise uses
+// http:// for IPs/localhost and https:// for domain names.
 export function normalizeLocalUrl(url?: string): string {
   const raw = (url || DEFAULT_LOCAL_AI_URL).trim();
-  if (!raw) return DEFAULT_LOCAL_AI_URL;
+  if (!raw) return '';
   if (/^https?:\/\//i.test(raw)) return raw.replace(/\/+$/, '');
-  return `http://${raw}`.replace(/\/+$/, '');
+  const isIpOrLocalhost = /^(localhost|\d{1,3}(\.\d{1,3}){3})(:\d+)?(\/|$)/i.test(raw);
+  return `${isIpOrLocalhost ? 'http' : 'https'}://${raw}`.replace(/\/+$/, '');
 }
