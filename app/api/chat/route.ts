@@ -2,7 +2,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { ALLOWED_MODEL_IDS, DEFAULT_MODEL, MODELS, normalizeLocalUrl } from '@/lib/models';
 
 // A 7B model on CPU can take over a minute to answer. Raise it if your Vercel plan allows.
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 export async function POST(req: Request) {
   try {
