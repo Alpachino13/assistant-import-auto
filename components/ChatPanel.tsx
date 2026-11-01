@@ -131,7 +131,7 @@ function ModelSelectorDropdown({
             </button>
           ))}
 
-          {/* Local Agent Home Server */}
+          {/* Local Agent (home server)*/}
           <div className="px-2.5 pt-2.5 pb-1 text-[10px] uppercase font-bold text-neutral-500 tracking-wider border-t border-white/5 mt-1">
             Agent Local (Home Server · Tailscale)
           </div>
